@@ -3,10 +3,11 @@ import os
 import threading
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QPushButton,
-    QLabel, QFileDialog, QSlider, QWidget, QHBoxLayout, QComboBox
+    QLabel, QFileDialog, QSlider, QWidget, 
+    QHBoxLayout, QComboBox
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap, QImage, QClipboard
 import PySpin
 
 class CameraApp(QMainWindow):
@@ -94,6 +95,12 @@ class CameraApp(QMainWindow):
         controls_layout.addWidget(self.framerate_label)
         controls_layout.addWidget(self.framerate_combo)
         self.framerate_combo.setFixedWidth(150)
+
+        # Copy to clipboard button
+        copy_button = QPushButton("to Clipboard")
+        copy_button.setStyleSheet("font-size: 16px; padding: 8px;")
+        copy_button.clicked.connect(self.copy_to_clipboard)
+        controls_layout.addWidget(copy_button)
 
         layout.addLayout(controls_layout)
 
@@ -223,6 +230,16 @@ class CameraApp(QMainWindow):
                     self.show_error("Gain setting is not writable.")
             except Exception as e:
                 self.show_error(f"Error updating gain: {e}")
+
+    def copy_to_clipboard(self):
+        """Copy the current image displayed in the QLabel to the clipboard."""
+        if not self.image_label.pixmap():
+            self.show_error("No image to copy.")
+            return
+
+        clipboard = QApplication.clipboard()
+        clipboard.setPixmap(self.image_label.pixmap())
+        self.show_error("Image copied to clipboard!")
 
 
     def show_error(self, message):
