@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import (
     QLabel, QFileDialog, QSlider, QWidget, 
     QHBoxLayout, QComboBox
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage, QClipboard
+from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtGui import QPixmap, QImage, QClipboard, QPainter
 import PySpin
 
 class CameraApp(QMainWindow):
@@ -16,6 +16,7 @@ class CameraApp(QMainWindow):
         self.setWindowTitle("Surgery camera acquisition")
         self.setGeometry(100, 100, 1200, 950)
         self.setFixedSize(1200, 900)
+        self.px_per_mm = 107
 
         # Initialize PySpin system
         self.system = PySpin.System.GetInstance()
@@ -66,7 +67,7 @@ class CameraApp(QMainWindow):
         self.exposure_label.setStyleSheet("font-size: 16px;")
         self.exposure_slider = QSlider(Qt.Horizontal)
         self.exposure_slider.setRange(int(self.min_exposure), int(self.max_exposure))
-        self.exposure_slider.setValue(1000)
+        self.exposure_slider.setValue(85000)
         self.exposure_slider.sliderReleased.connect(self.update_exposure)
         exposure_layout.addWidget(QLabel("Exposure"))
         exposure_layout.addWidget(self.exposure_slider)
@@ -79,29 +80,41 @@ class CameraApp(QMainWindow):
         self.gain_label.setStyleSheet("font-size: 16px;")
         self.gain_slider = QSlider(Qt.Horizontal)
         self.gain_slider.setRange(int(self.min_gain), int(self.max_gain))
-        self.gain_slider.setValue(10)
+        self.gain_slider.setValue(32)
         self.gain_slider.sliderReleased.connect(self.update_gain)
         gain_layout.addWidget(QLabel("Gain"))
         gain_layout.addWidget(self.gain_slider)
         gain_layout.addWidget(self.gain_label)
         controls_layout.addLayout(gain_layout)
-
-        # Framerate selection
+        
+        # Framerate and screenshot button layout
+        framerate_layout = QHBoxLayout()
+        
+        # Framerate label and combo box
+        framerate_section = QVBoxLayout()
         self.framerate_label = QLabel("Framerate: 10 Hz")
         self.framerate_label.setStyleSheet("font-size: 16px;")
         self.framerate_combo = QComboBox()
         self.framerate_combo.addItems(["10", "5", "1"])
         self.framerate_combo.currentIndexChanged.connect(self.update_framerate)
-        controls_layout.addWidget(self.framerate_label)
-        controls_layout.addWidget(self.framerate_combo)
-        self.framerate_combo.setFixedWidth(150)
+        self.framerate_combo.setFixedWidth(100)  # Small dedicated space for the combo box
+        framerate_section.addWidget(self.framerate_label)
+        framerate_section.addWidget(self.framerate_combo)
+        framerate_layout.addLayout(framerate_section)
 
-        # Copy to clipboard button
-        copy_button = QPushButton("to Clipboard")
-        copy_button.setStyleSheet("font-size: 16px; padding: 8px;")
-        copy_button.clicked.connect(self.copy_to_clipboard)
-        controls_layout.addWidget(copy_button)
+        # Spacer for spacing
+        framerate_layout.addStretch()
 
+        # Screenshot button
+        to_clipboard = QPushButton("To Clipboard")
+        to_clipboard.setStyleSheet("font-size: 16px; padding: 8px;")
+        to_clipboard.clicked.connect(self.copy_to_clipboard)
+        framerate_layout.addWidget(to_clipboard)
+        
+        # Add the framerate layout to controls
+        controls_layout.addLayout(framerate_layout)
+
+        # Add all controls to the main layout
         layout.addLayout(controls_layout)
 
         central_widget.setLayout(layout)
@@ -232,14 +245,61 @@ class CameraApp(QMainWindow):
                 self.show_error(f"Error updating gain: {e}")
 
     def copy_to_clipboard(self):
-        """Copy the current image displayed in the QLabel to the clipboard."""
+        """Copy the current image displayed in the QLabel to the clipboard with framerate, gain, exposure, and a 1mm scale bar."""
         if not self.image_label.pixmap():
             self.show_error("No image to copy.")
             return
 
+        # Get the current pixmap
+        pixmap = self.image_label.pixmap()
+
+        # Ensure the pixmap is resized to 1024 x 768
+        fixed_size_pixmap = pixmap.scaled(1024, 768, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        # Convert to QImage
+        image = fixed_size_pixmap.toImage()
+
+        # Start a QPainter to draw text and graphics on the image
+        painter = QPainter(image)
+
+        # Set font to bold and larger size for metadata text
+        font = painter.font()
+        font.setBold(True)
+        font.setPointSize(14)  # Larger font size
+        painter.setFont(font)
+
+        # Set text color to cyan
+        painter.setPen(Qt.cyan)
+
+        # Retrieve the current framerate, gain, and exposure
+        framerate = self.framerate_combo.currentText()
+        gain = self.gain_label.text()
+        exp_time = self.exposure_label.text()
+
+        # Construct the metadata text
+        text = f"{gain}, {exp_time}"
+
+        # Measure text size for the background rectangle
+        text_rect = painter.boundingRect(10, 10, image.width(), image.height(), Qt.TextSingleLine, text)
+
+        # Draw the background rectangle for metadata text
+        painter.setBrush(Qt.darkGray)  # Dark gray background
+        painter.setPen(Qt.NoPen)       # No border for the rectangle
+        painter.drawRect(text_rect.adjusted(-10, -5, 10, 5))  # Add padding around the text
+
+        # Draw the metadata text on top of the rectangle
+        painter.setPen(Qt.cyan)  # Cyan text color
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignTop, text)
+
+        # End painting
+        painter.end()
+
+        # Convert the QImage back to a QPixmap
+        updated_pixmap = QPixmap.fromImage(image)
+
+        # Copy the updated pixmap to the clipboard
         clipboard = QApplication.clipboard()
-        clipboard.setPixmap(self.image_label.pixmap())
-        self.show_error("Image copied to clipboard!")
+        clipboard.setPixmap(updated_pixmap)
 
 
     def show_error(self, message):
