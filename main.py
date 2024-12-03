@@ -4,11 +4,18 @@ import threading
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QPushButton,
     QLabel, QFileDialog, QSlider, QWidget, 
-    QHBoxLayout, QComboBox
+    QHBoxLayout, QComboBox, QProxyStyle
 )
 from PyQt5.QtCore import Qt, QRect
 from PyQt5.QtGui import QPixmap, QImage, QClipboard, QPainter
 import PySpin
+
+class ProxyStyle(QProxyStyle):
+    def styleHint(self, hint, opt=None, widget=None, returnData=None):
+        res = super().styleHint(hint, opt, widget, returnData)
+        if hint == self.SH_Slider_AbsoluteSetButtons:
+            res |= Qt.LeftButton
+        return res
 
 class CameraApp(QMainWindow):
     def __init__(self):
@@ -68,7 +75,7 @@ class CameraApp(QMainWindow):
         self.exposure_slider = QSlider(Qt.Horizontal)
         self.exposure_slider.setRange(int(self.min_exposure), int(self.max_exposure))
         self.exposure_slider.setValue(85000)
-        self.exposure_slider.sliderReleased.connect(self.update_exposure)
+        self.exposure_slider.valueChanged.connect(self.update_exposure)
         exposure_layout.addWidget(QLabel("Exposure"))
         exposure_layout.addWidget(self.exposure_slider)
         exposure_layout.addWidget(self.exposure_label)
@@ -81,7 +88,7 @@ class CameraApp(QMainWindow):
         self.gain_slider = QSlider(Qt.Horizontal)
         self.gain_slider.setRange(int(self.min_gain), int(self.max_gain))
         self.gain_slider.setValue(32)
-        self.gain_slider.sliderReleased.connect(self.update_gain)
+        self.gain_slider.valueChanged.connect(self.update_gain)
         gain_layout.addWidget(QLabel("Gain"))
         gain_layout.addWidget(self.gain_slider)
         gain_layout.addWidget(self.gain_label)
@@ -320,6 +327,9 @@ class CameraApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    # set the style globally for the application
+    app.setStyle(ProxyStyle())
+    
     window = CameraApp()
     window.show()
     sys.exit(app.exec_())
