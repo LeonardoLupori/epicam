@@ -29,8 +29,38 @@ class CameraApp(QMainWindow):
         else:
             self.show_error("No camera detected.")
             sys.exit()
+
+
         # Set dark gray background
-        self.setStyleSheet("background-color: #2d2d2d; color: white;")
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #2d2d2d;
+            }
+            QLabel {
+                color: white;
+            }
+            QPushButton {
+                background-color: #e0e0e0;
+                color: black;
+                border: 1px solid #888888;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #d0d0d0;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+            QComboBox {
+                background-color: #e0e0e0;
+                color: black;
+                border: 1px solid #888888;
+                border-radius: 4px;
+                padding: 4px 8px;
+            }
+        """)
+        # self.setStyleSheet("background-color: #2d2d2d; color: white;")
 
         self.cache_exposure_range()
         self.cache_gain_range()
