@@ -24,21 +24,33 @@ class CameraApp(QMainWindow):
         self.setGeometry(100, 100, 1200, 950)
         self.setFixedSize(1200, 900)
         self.px_per_mm = 107
+        self.has_camera = False
+
+        # Default values for when no camera is available
+        self.min_exposure = 1000    # 1ms
+        self.max_exposure = 100000  # 100ms
+        self.min_gain = 0
+        self.max_gain = 47
 
         # Initialize PySpin system
         self.system = PySpin.System.GetInstance()
         self.cam_list = self.system.GetCameras()
         self.camera = None
+        
+        # Try to initialize camera
         if self.cam_list.GetSize() > 0:
-            self.camera = self.cam_list[0]
-            self.camera.Init()
-            self.set_camera_framerate(10)
-        else:
-            self.show_error("No camera detected.")
-            sys.exit()
-
-
-        # Set dark gray background
+            try:
+                self.camera = self.cam_list[0]
+                self.camera.Init()
+                self.set_camera_framerate(10)
+                self.has_camera = True
+                self.cache_exposure_range()
+                self.cache_gain_range()
+            except Exception as e:
+                print(f"Error initializing camera: {e}")
+                self.has_camera = False
+        
+        # Set dark gray background but exclude buttons from the white text color
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #2d2d2d;
@@ -67,21 +79,43 @@ class CameraApp(QMainWindow):
                 padding: 4px 8px;
             }
         """)
-        # self.setStyleSheet("background-color: #2d2d2d; color: white;")
-
-        self.cache_exposure_range()
-        self.cache_gain_range()
         
         # Setup UI
         self.init_ui()
 
-        # Start camera preview in a separate thread
-        self.preview_active = True
-        self.preview_thread = threading.Thread(target=self.start_preview, daemon=True)
-        self.preview_thread.start()
+        # Only start preview if camera is available
+        if self.has_camera:
+            self.preview_active = True
+            self.preview_thread = threading.Thread(target=self.start_preview, daemon=True)
+            self.preview_thread.start()
+            self.update_exposure()
+            self.update_gain()
+        else:
+            self.display_no_camera_warning()
+            # Disable controls
+            self.disable_controls()
 
-        self.update_exposure()
-        self.update_gain()
+    def disable_controls(self):
+        """Disable all camera-related controls when no camera is available"""
+        self.exposure_slider.setEnabled(False)
+        self.gain_slider.setEnabled(False)
+        self.framerate_combo.setEnabled(False)
+        for button in self.findChildren(QPushButton):
+            button.setEnabled(False)
+
+    def display_no_camera_warning(self):
+        """Display warning message in the image display area"""
+        warning_label = QLabel("⚠️ No valid camera handle found\nPlease check camera connection and restart the application")
+        warning_label.setStyleSheet("""
+            color: #ff4444;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: black;
+            padding: 20px;
+        """)
+        warning_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setLayout(QVBoxLayout())
+        self.image_label.layout().addWidget(warning_label)
 
 
     def init_ui(self):
@@ -188,7 +222,9 @@ class CameraApp(QMainWindow):
             self.show_error(f"Error during preview: {e}")
 
     def cache_exposure_range(self):
-        # Cache exposure range during initialization
+        """Cache exposure range during initialization"""
+        if not self.has_camera:
+            return
         node_map = self.camera.GetNodeMap()
         exposure_node = PySpin.CFloatPtr(node_map.GetNode("ExposureTime"))
         if PySpin.IsAvailable(exposure_node) and PySpin.IsReadable(exposure_node):
@@ -196,7 +232,9 @@ class CameraApp(QMainWindow):
             self.max_exposure = exposure_node.GetMax()
 
     def cache_gain_range(self):
-        # Cache gain range during initialization
+        """Cache gain range during initialization"""
+        if not self.has_camera:
+            return
         node_map = self.camera.GetNodeMap()
         gain_node = PySpin.CFloatPtr(node_map.GetNode("Gain"))
         if PySpin.IsAvailable(gain_node) and PySpin.IsReadable(gain_node):
@@ -409,10 +447,11 @@ class CameraApp(QMainWindow):
         error_dialog.show()
 
     def closeEvent(self, event):
-        self.preview_active = False
-        if self.preview_thread.is_alive():
-            self.preview_thread.join()
-        if self.camera:
+        """Handle application closure"""
+        if self.has_camera:
+            self.preview_active = False
+            if hasattr(self, 'preview_thread') and self.preview_thread.is_alive():
+                self.preview_thread.join()
             self.camera.EndAcquisition()
             self.camera.DeInit()
         self.cam_list.Clear()
