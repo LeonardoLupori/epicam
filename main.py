@@ -388,9 +388,11 @@ class CameraApp(QMainWindow):
             self.show_error("No image to copy.")
             return
 
-        # Get the current pixmap and rotate it
-        pixmap = self.image_label.pixmap()
-        rotated_pixmap = pixmap.transformed(QPixmap.fromImage(QImage()).transform().rotate(180))
+        original_pixmap = self.image_label.pixmap()
+        # Create transform for 180-degree rotation
+        transform = QPixmap().transform()
+        transform.rotate(180)
+        rotated_pixmap = original_pixmap.transformed(transform, Qt.SmoothTransformation)
 
         # Ensure the pixmap is resized to 1024 x 768
         fixed_size_pixmap = rotated_pixmap.scaled(1024, 768, Qt.KeepAspectRatio, Qt.SmoothTransformation)
