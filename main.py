@@ -147,6 +147,11 @@ class CameraApp(QMainWindow):
         to_clipboard.setStyleSheet("font-size: 16px; padding: 8px;")
         to_clipboard.clicked.connect(self.copy_to_clipboard)
         framerate_layout.addWidget(to_clipboard)
+
+        rotate_to_clipboard = QPushButton("Rotate -> To Clipboard")
+        rotate_to_clipboard.setStyleSheet("font-size: 16px; padding: 8px;")
+        rotate_to_clipboard.clicked.connect(self.rotate_and_copy_to_clipboard)
+        framerate_layout.addWidget(rotate_to_clipboard)
         
         # Add the framerate layout to controls
         controls_layout.addLayout(framerate_layout)
@@ -292,6 +297,65 @@ class CameraApp(QMainWindow):
 
         # Ensure the pixmap is resized to 1024 x 768
         fixed_size_pixmap = pixmap.scaled(1024, 768, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        # Convert to QImage
+        image = fixed_size_pixmap.toImage()
+
+        # Start a QPainter to draw text and graphics on the image
+        painter = QPainter(image)
+
+        # Set font to bold and larger size for metadata text
+        font = painter.font()
+        font.setBold(True)
+        font.setPointSize(14)  # Larger font size
+        painter.setFont(font)
+
+        # Set text color to cyan
+        painter.setPen(Qt.cyan)
+
+        # Retrieve the current framerate, gain, and exposure
+        framerate = self.framerate_combo.currentText()
+        gain = self.gain_label.text()
+        exp_time = self.exposure_label.text()
+
+        # Construct the metadata text
+        text = f"{gain}, {exp_time}"
+
+        # Measure text size for the background rectangle
+        text_rect = painter.boundingRect(10, 10, image.width(), image.height(), Qt.TextSingleLine, text)
+
+        # Draw the background rectangle for metadata text
+        painter.setBrush(Qt.darkGray)  # Dark gray background
+        painter.setPen(Qt.NoPen)       # No border for the rectangle
+        painter.drawRect(text_rect.adjusted(-10, -5, 10, 5))  # Add padding around the text
+
+        # Draw the metadata text on top of the rectangle
+        painter.setPen(Qt.cyan)  # Cyan text color
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignTop, text)
+
+        # End painting
+        painter.end()
+
+        # Convert the QImage back to a QPixmap
+        updated_pixmap = QPixmap.fromImage(image)
+
+        # Copy the updated pixmap to the clipboard
+        clipboard = QApplication.clipboard()
+        clipboard.setPixmap(updated_pixmap)
+
+
+    def rotate_and_copy_to_clipboard(self):
+        """Copy the current image to the clipboard after rotating it 180 degrees."""
+        if not self.image_label.pixmap():
+            self.show_error("No image to copy.")
+            return
+
+        # Get the current pixmap and rotate it
+        pixmap = self.image_label.pixmap()
+        rotated_pixmap = pixmap.transformed(QPixmap.fromImage(QImage()).transform().rotate(180))
+
+        # Ensure the pixmap is resized to 1024 x 768
+        fixed_size_pixmap = rotated_pixmap.scaled(1024, 768, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         # Convert to QImage
         image = fixed_size_pixmap.toImage()
