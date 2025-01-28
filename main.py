@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QComboBox, QProxyStyle
 )
 from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QPixmap, QImage, QClipboard, QPainter
+from PyQt5.QtGui import QPixmap, QImage, QClipboard, QPainter, QTransform
 import PySpin
 
 class ProxyStyle(QProxyStyle):
@@ -387,10 +387,10 @@ class CameraApp(QMainWindow):
         if not self.image_label.pixmap():
             self.show_error("No image to copy.")
             return
-
+            
         original_pixmap = self.image_label.pixmap()
         # Create transform for 180-degree rotation
-        transform = QPixmap().transform()
+        transform = QTransform()
         transform.rotate(180)
         rotated_pixmap = original_pixmap.transformed(transform, Qt.SmoothTransformation)
 
